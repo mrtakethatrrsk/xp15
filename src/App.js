@@ -23,7 +23,7 @@ export default function App() {
 
     try {
       // Step 0: Lock keyboard before sending task
-      await fetch("/ygvcs/service/web/device/setKeyboardLock", {
+      await fetch("/ygvcs/service/web/userTask/setKeyboardLock", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -31,7 +31,7 @@ export default function App() {
         },
         body: JSON.stringify({
           deviceImei: form.deviceImei,
-          state: "1"
+          lockState: "1"
         })
       });
 

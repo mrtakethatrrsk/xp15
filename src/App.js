@@ -1,14 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 
 export default function App() {
   const [form, setForm] = useState({
-    messageId: "",
-    deviceImei: "12345678"
+    deviceImei: "242004519"
   });
   const [response, setResponse] = useState(null);
   const [deviceList, setDeviceList] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Auto-incrementing messageId tracker
+  const messageCounter = useRef(1);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -20,13 +22,27 @@ export default function App() {
     setResponse(null);
 
     try {
+      // Step 0: Lock keyboard before sending task
+      await fetch("/ygvcs/service/web/device/setKeyboardLock", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "lang": "en_US"
+        },
+        body: JSON.stringify({
+          deviceImei: form.deviceImei,
+          state: "1"
+        })
+      });
+
       // Step 1: Get device info to extract startSiteCode
       const deviceInfoRes = await fetch(
         "/ygvcs/service/web/device/getDeviceInfo",
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "lang": "en_US"
           },
           body: JSON.stringify({
             deviceImei: form.deviceImei
@@ -34,33 +50,38 @@ export default function App() {
         }
       );
       const deviceInfoData = await deviceInfoRes.json();
-
       const startSiteCode = deviceInfoData?.data?.startSiteCode;
+      const endSiteCode = deviceInfoData?.data?.endSiteCode;
 
-      // Step 2: Send task using obtained startSiteCode
+      // Step 2: Send task with incrementing messageId
       const sendTaskRes = await fetch(
         "/ygvcs/service/web/userTask/sendTask",
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "lang": "en_US"
           },
           body: JSON.stringify({
-            messageId: form.messageId,
-            startSiteCode: String(startSiteCode || "0"),
+            messageId: messageCounter.current,
+            startSiteCode: String(startSiteCode || endSiteCode || "0"),
             deviceImei: form.deviceImei,
-            customerId: "1023",
-            startHandel: "1",
-            endHandel: "2",
-            startStorageHeight: "0",
-            endStorageHeight: "0",
-            upDownHeight: "100"
+            //customerId: "1023",
+            //startHandel: "1",
+            //endHandel: "2",
+            //startStorageHeight: "0",
+            //endStorageHeight: "0",
+            //upDownHeight: "100"
           })
         }
       );
 
       const taskData = await sendTaskRes.json();
       setResponse(taskData);
+
+      // Increment messageId for next click
+      messageCounter.current += 1;
+
     } catch (err) {
       setError(err.message || "Błąd połączenia z API");
     }
@@ -101,13 +122,6 @@ export default function App() {
       <div className="grid gap-4 w-full max-w-md">
         <input
           className="border p-2 rounded"
-          placeholder="messageId"
-          name="messageId"
-          value={form.messageId}
-          onChange={handleChange}
-        />
-        <input
-          className="border p-2 rounded"
           placeholder="deviceImei"
           name="deviceImei"
           value={form.deviceImei}
@@ -118,16 +132,17 @@ export default function App() {
           className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
           disabled={loading}
         >
-          {loading ? "Wysyłanie..." : "Wyślij zadanie"}
+          {loading ? "Czekaj..." : "Wyślij zadanie"}
         </button>
-
+        <br/><br/>
         <button
           onClick={handleFetchDevices}
           className="bg-green-600 text-white p-2 rounded hover:bg-green-700"
           disabled={loading}
         >
-          {loading ? "Ładowanie..." : "Pokaż listę urządzeń"}
+          {loading ? "Czekaj..." : "Pokaż listę urządzeń"}
         </button>
+        
       </div>
 
       {response && (
